@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#111111">
+    <title>けやき祭クイズ</title>
+    <link rel="stylesheet" href="/player/style.css">
+    <script src="/socket.io/socket.io.js" defer></script>
+    <script src="/player/script.js" defer></script>
+  </head>
+  <body>
+    <main class="quiz-shell">
+      <header class="topbar">
+        <p class="event-name">KEYAKI FESTIVAL</p>
+        <p id="device-name" class="progress" aria-live="polite">接続準備中…</p>
+      </header>
+
+      <section id="loading-view" class="panel status-panel" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <h1>問題を準備しています</h1>
+      </section>
+
+      <section id="quiz-view" class="panel" hidden>
+        <p class="eyebrow">QUESTION <span id="question-number"></span></p>
+        <h1 id="question-text" class="question-text"></h1>
+        <p class="lead">答えを入力して、管理PCへ送信してください。</p>
+        <form id="answer-form">
+          <label class="sr-only" for="answer-input">答え</label>
+          <input
+            id="answer-input"
+            class="text-answer"
+            name="answer"
+            type="text"
+            autocomplete="off"
+            maxlength="100"
+            placeholder="答えを入力"
+            required
+          >
+          <p id="form-message" class="form-message" aria-live="polite"></p>
+          <button id="submit-button" class="primary-button" type="submit">回答する</button>
+        </form>
+      </section>
+
+      <section id="result-view" class="panel result-panel" hidden aria-live="assertive">
+        <div id="result-mark" class="result-mark" aria-hidden="true"></div>
+        <p id="result-label" class="eyebrow"></p>
+        <h1 id="result-title"></h1>
+        <p id="result-message" class="result-message"></p>
+      </section>
+
+      <section id="setup-view" class="panel status-panel" hidden>
+        <div class="error-icon" aria-hidden="true">!</div>
+        <h1>端末IDが必要です</h1>
+        <p>URLの末尾に <code>?id=pc1</code>、<code>?id=pc2</code>、<code>?id=pc3</code> のいずれかを付けて開いてください。</p>
+      </section>
+
+      <section id="error-view" class="panel status-panel" hidden>
+        <div class="error-icon" aria-hidden="true">!</div>
+        <h1>接続を確認してください</h1>
+        <p id="error-message">管理PCのサーバーと通信できませんでした。</p>
+        <button id="retry-button" class="primary-button" type="button">もう一度試す</button>
+      </section>
+    </main>
+  </body>
+</html>
