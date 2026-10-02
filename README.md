@@ -32,6 +32,37 @@
 - Socket.IOによる管理画面へのリアルタイム通知
 - 正解データを回答PCへ送信しない構成
 
+## 2台構成の運用方法
+
+### 管理PC
+1. 管理PCでこのプロジェクトを起動する。
+   ```bash
+   npm install
+   npm start
+   ```
+2. ブラウザで`http://localhost:3000/admin`を開く。
+
+### Player PC
+1. Player PCでもこのプロジェクトのコードを置く。
+2. そのPCでブラウザから`http://localhost:3000/player?id=pc1`などを開く。
+3. そのPCのブラウザでは `navigator.serial.requestPort()` によるUSB接続を使う。
+4. そのPCで別途、ローカルのシリアル用アプリを起動する。
+   ```bash
+   npm install
+   npm run player-agent
+   ```
+5. 管理PC側の `.env` に `PLAYER_AGENT_URLS` を設定して、Player PCのローカルエージェントへLAN経由で文字列を送れるようにする。
+   ```env
+   PLAYER_AGENT_URLS=pc1=http://192.168.10.11:3100,pc2=http://192.168.10.12:3100,pc3=http://192.168.10.13:3100
+   ```
+
+### Player PC側のエージェント設定例
+```env
+PLAYER_AGENT_PORT=3100
+SERIAL_PORT=/dev/ttyUSB0
+SERIAL_BAUD_RATE=115200
+```
+
 ## これから
 
 - 本番用の問題と正解へ差し替える

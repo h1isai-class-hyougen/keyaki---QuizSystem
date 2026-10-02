@@ -3,6 +3,7 @@ const express = require("express");
 const { getQuestionForPc, isValidPcId } = require("./questions");
 const { isCorrectAnswer } = require("./answers");
 const { createQuizState } = require("./quizState");
+const { sendPlayerAgentCommand } = require("./playerAgentClient");
 
 function createApp(options = {}) {
   const app = express();
@@ -56,6 +57,21 @@ function createApp(options = {}) {
 
   app.get("/admin", (_request, response) => {
     response.sendFile(path.join(publicDir, "admin", "index.html"));
+  });
+
+  app.post("/api/player/serial/send", async (request, response) => {
+    const { pcId, text } = request.body ?? {};
+
+    if (typeof pcId !== "string" || typeof text !== "string") {
+      return response.status(400).json({ ok: false, error: "pcId と text が必要です。" });
+    }
+
+    const result = await sendPlayerAgentCommand(pcId, text);
+    if (!result.ok) {
+      return response.status(503).json({ ok: false, error: result.error || "player agent request failed" });
+    }
+
+    return response.json({ ok: true, result });
   });
 
   app.use(express.static(publicDir, {

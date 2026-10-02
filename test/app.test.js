@@ -2,6 +2,7 @@ process.env.QUESTION_1_ANSWER = "富士山|ふじさん";
 process.env.QUESTION_2_ANSWER = "365|365日";
 process.env.QUESTION_3_ANSWER = "4516";
 
+const http = require("node:http");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createApp } = require("../server/createApp");
@@ -63,4 +64,38 @@ test("存在しない端末IDを拒否する", async (context) => {
   context.after(() => server.close());
   const response = await fetch(`${baseUrl}/api/question?pcId=pc9`);
   assert.equal(response.status, 400);
+});
+
+test("ローカルエージェントへLAN経由でシリアル文字列を送れる", async (context) => {
+  const targetServer = http.createServer((request, response) => {
+    let body = "";
+    request.on("data", (chunk) => { body += chunk; });
+    request.on("end", () => {
+      const payload = JSON.parse(body || "{}");
+      assert.equal(payload.text, "true");
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ ok: true }));
+    });
+  });
+
+  await new Promise((resolve) => targetServer.listen(0, "127.0.0.1", resolve));
+  const { port } = targetServer.address();
+  const prefix = `http://127.0.0.1:${port}`;
+  process.env.PLAYER_AGENT_URLS = `pc1=${prefix}`;
+  context.after(() => {
+    delete process.env.PLAYER_AGENT_URLS;
+    targetServer.close();
+  });
+
+  const { server, baseUrl } = await startTestServer();
+  context.after(() => server.close());
+
+  const response = await fetch(`${baseUrl}/api/player/serial/send`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pcId: "pc1", text: "true" })
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { ok: true, result: { ok: true, status: 200, payload: { ok: true } } });
 });
