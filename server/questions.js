@@ -3,20 +3,23 @@ const questions = [
   {
     id: 1,
     type: "text",
-    text: "日本でいちばん高い山はどれ？",
+    //text: "日本でいちばん高い山はどれ？",
+    text: "答え",
     placeholder: "山の名前を入力"
   },
   {
     id: 2,
     type: "text",
-    text: "1年は、うるう年でない場合は何日？",
+    //text: "1年は、うるう年でない場合は何日？",
+    text: "答え",
     placeholder: "日数を入力",
     inputMode: "numeric"
   },
   {
     id: 3,
     type: "text",
-    text: "1234 + 3282 はいくつ？",
+    //text: "1234 + 3282 はいくつ？",
+    text: "答え",
     placeholder: "数字を入力",
     inputMode: "numeric"
   }

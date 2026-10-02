@@ -4,7 +4,7 @@
   const $ = (selector) => document.querySelector(selector);
   const VALID_PC_IDS = new Set(["pc1", "pc2", "pc3"]);
   const PC_ID_KEY = "keyakiQuizPcId";
-  const RESULT_TIME_MS = 3000;
+  const RESULT_TIME_MS = 10000;
   const SERIAL_BAUD_RATE = 115200;
   const LAB_COMMAND = [
     "ArrowUp",
@@ -329,9 +329,27 @@
     ui.result.classList.toggle("correct", correct);
     ui.result.classList.toggle("incorrect", !correct);
     ui.resultMark.textContent = correct ? "○" : "×";
-    ui.resultLabel.textContent = correct ? "CORRECT" : "INCORRECT";
-    ui.resultTitle.textContent = correct ? "正解！" : "不正解";
-    ui.resultMessage.textContent = "3秒後に問題画面へ戻ります。";
+    //ui.resultLabel.textContent = correct ? "CORRECT" : "INCORRECT";
+    //ui.resultTitle.textContent = correct ? "正解！" : "不正解";
+    if(pcId === "pc1"){
+      ui.resultTitle.textContent = correct ? "519" : "不正解です。";
+    } else if(pcId === "pc2"){
+      ui.resultTitle.textContent = correct ? "131" : "不正解です。";
+    } else if(pcId === "pc3"){
+      ui.resultTitle.textContent = correct ? "444" : "不正解です。";
+    }
+    if(correct){
+      const sound = new Audio('sound.mp3');
+      sound.play().catch((error) => {
+        console.error("音声の再生に失敗しました:", error);
+      });
+    }else{
+      const sound = new Audio('sound2.mp3');
+      sound.play().catch((error) => {
+        console.error("音声の再生に失敗しました:", error);
+      });
+    }
+    ui.resultMessage.textContent = "10秒後に問題画面へ戻ります。";
     show(ui.result);
     sendStatus(correct ? "correct" : "incorrect");
     void sendUsbResult(correct);
