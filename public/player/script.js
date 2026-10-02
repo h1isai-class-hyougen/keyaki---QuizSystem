@@ -5,6 +5,20 @@
   const VALID_PC_IDS = new Set(["pc1", "pc2", "pc3"]);
   const PC_ID_KEY = "keyakiQuizPcId";
   const RESULT_TIME_MS = 3000;
+  const SERIAL_BAUD_RATE = 115200;
+  const LAB_COMMAND = [
+    "ArrowUp",
+    "ArrowUp",
+    "ArrowDown",
+    "ArrowDown",
+    "ArrowLeft",
+    "ArrowRight",
+    "ArrowLeft",
+    "ArrowRight",
+    "KeyB",
+    "KeyA"
+  ];
+  const textEncoder = new TextEncoder();
 
   const ui = {
     loading: $("#loading-view"),
@@ -29,9 +43,18 @@
 
   const views = [ui.loading, ui.quiz, ui.result, ui.setup, ui.error];
   const pcId = getPcId();
+  const usbSupported = "serial" in navigator;
   let question;
   let socket;
   let resultTimer;
+  let usbPort = null;
+  let usbWriter = null;
+  let usbConnected = false;
+  let usbBusy = false;
+  let usbMessage = usbSupported ? "USB未接続" : "このブラウザはUSBシリアル非対応です";
+  let usbAreaHidden = false;
+  let labCommandIndex = 0;
+  let questionPulseTimer = null;
 
   function getPcId() {
     const fromUrl = new URLSearchParams(location.search).get("id")?.toLowerCase();
@@ -67,6 +90,172 @@
   function setSubmitting(busy) {
     ui.submit.disabled = busy;
     ui.submit.textContent = busy ? "判定中…" : "回答する";
+  }
+
+  function renderUsbStatus() {
+    return;
+  }
+
+  function toggleUsbArea() {
+    if (document.querySelector("#usb-area")) {
+      document.querySelector("#usb-area").remove();
+      return;
+    }
+
+    const usbArea = document.createElement("div");
+    usbArea.id = "usb-area";
+    usbArea.className = "usb-area";
+    usbArea.innerHTML = `
+      <button id="usb-connect-button" class="secondary-button usb-button" type="button">USB接続</button>
+      <p id="usb-status" class="usb-status" aria-live="polite">USB未接続</p>
+    `;
+
+    const topbar = document.querySelector(".topbar");
+    if (topbar) {
+      topbar.appendChild(usbArea);
+    }
+
+    const reconnectButton = document.querySelector("#usb-connect-button");
+    const reconnectStatus = document.querySelector("#usb-status");
+    if (reconnectButton && reconnectStatus) {
+      reconnectButton.addEventListener("click", () => {
+        if (usbConnected) {
+          void disconnectUsb();
+          return;
+        }
+
+        void connectUsb();
+      });
+      reconnectButton.textContent = usbConnected ? "USB切断" : "USB接続";
+      reconnectStatus.textContent = usbMessage;
+    }
+  }
+
+  function triggerQuestionPulse() {
+    const input = document.querySelector("#answer-input");
+    if (!input) return;
+
+    input.classList.remove("is-reacting");
+    void input.offsetWidth;
+    input.classList.add("is-reacting");
+
+    if (questionPulseTimer) {
+      clearTimeout(questionPulseTimer);
+    }
+
+    questionPulseTimer = setTimeout(() => {
+      input.classList.remove("is-reacting");
+    }, 220);
+  }
+
+  function handleLabCommand(event) {
+    const current = event.key || event.code;
+    const expected = LAB_COMMAND[labCommandIndex];
+
+    if (current === expected || event.code === expected || event.key === expected) {
+      labCommandIndex += 1;
+
+      if (labCommandIndex === LAB_COMMAND.length) {
+        labCommandIndex = 0;
+        toggleUsbArea();
+      }
+      return;
+    }
+
+    if (current === LAB_COMMAND[0] || event.code === LAB_COMMAND[0]) {
+      labCommandIndex = 1;
+      return;
+    }
+
+    labCommandIndex = 0;
+  }
+
+  function setUsbStatus(message, connected = usbConnected) {
+    usbMessage = message;
+    usbConnected = connected;
+    renderUsbStatus();
+  }
+
+  async function disconnectUsb() {
+    usbBusy = true;
+    usbMessage = "切断中…";
+    renderUsbStatus();
+
+    try {
+      if (usbWriter) {
+        usbWriter.releaseLock();
+        usbWriter = null;
+      }
+
+      if (usbPort) {
+        await usbPort.close();
+      }
+    } catch {
+      // 切断失敗でも状態は初期化する。
+    } finally {
+      usbPort = null;
+      usbBusy = false;
+      setUsbStatus(usbSupported ? "USB未接続" : "このブラウザはUSBシリアル非対応です", false);
+    }
+  }
+
+  async function connectUsb() {
+    if (!usbSupported) {
+      setUsbStatus("このブラウザはUSBシリアル非対応です", false);
+      return;
+    }
+
+    usbBusy = true;
+    usbMessage = "USB機器を選択してください…";
+    renderUsbStatus();
+
+    let connected = false;
+
+    try {
+      usbPort = await navigator.serial.requestPort();
+      await usbPort.open({ baudRate: SERIAL_BAUD_RATE });
+      usbWriter = usbPort.writable.getWriter();
+      connected = true;
+      setUsbStatus("USB接続中", true);
+    } catch (error) {
+      if (usbWriter) {
+        try {
+          usbWriter.releaseLock();
+        } catch {
+          // noop
+        }
+        usbWriter = null;
+      }
+
+      if (usbPort) {
+        try {
+          await usbPort.close();
+        } catch {
+          // noop
+        }
+        usbPort = null;
+      }
+
+      if (error?.name === "NotFoundError") {
+        usbMessage = usbSupported ? "USB未接続" : "このブラウザはUSBシリアル非対応です";
+      } else {
+        usbMessage = "USB接続に失敗しました";
+      }
+    } finally {
+      usbBusy = false;
+      usbConnected = connected;
+      renderUsbStatus();
+    }
+  }
+
+  async function sendUsbResult(correct) {
+    if (!usbConnected || !usbWriter) return;
+
+    try {
+      await usbWriter.write(textEncoder.encode(`${correct ? "true" : "false"}\n`));
+    } catch {
+      await disconnectUsb();
+    }
   }
 
   async function loadQuestion() {
@@ -145,6 +334,7 @@
     ui.resultMessage.textContent = "3秒後に問題画面へ戻ります。";
     show(ui.result);
     sendStatus(correct ? "correct" : "incorrect");
+    void sendUsbResult(correct);
     resultTimer = setTimeout(showQuestion, RESULT_TIME_MS);
   }
 
@@ -158,6 +348,12 @@
     sendStatus(ui.answer.value.trim() ? "answering" : "waiting");
   });
   ui.retry.addEventListener("click", loadQuestion);
+  document.addEventListener("keydown", (event) => {
+    triggerQuestionPulse();
+    handleLabCommand(event);
+  });
+
+  renderUsbStatus();
 
   if (pcId) {
     ui.deviceName.textContent = pcId.toUpperCase();
